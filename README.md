@@ -2,7 +2,7 @@
 
 A simple, open-source hosting dashboard built around HestiaCP. A home for your websites, without the busywork.
 
-**Version 0.1 is a local alpha:** a working demo wizard and a read-only Hestia connector. It does not install WordPress or modify a server yet. Hearth is an independent project, not an official HestiaCP product.
+**Version 0.2 is a local alpha:** a four-step demo wizard, Hestia website/backup listing, and an experimental real WordPress installation flow. Live installation is opt-in and has not yet been verified against a real Hestia server. Hearth is an independent project, not an official HestiaCP product.
 
 ## Try it
 
@@ -12,36 +12,35 @@ Install Node.js 22.9 or newer, then run:
 npm start
 ```
 
-Open **http://localhost:4317**. There are no dependencies to install and no account required. Without Hestia settings, Hearth opens in demo mode.
+Open **http://localhost:4317**. There are no dependencies to install and no account required. Without Hestia settings, Hearth opens in demo mode. Demo progress is explicitly labeled and never changes a server.
 
-## What works
+## Keep it simple
 
-- Websites, Backups, Server, and Settings screens, responsive on mobile.
-- Four-step demo wizard: check server, name website, create login, launch.
-- Domain and login validation, password generation, and duplicate-domain checks.
-- Resumable non-secret drafts and demo websites in browser storage. Passwords stay in memory and are never saved or sent to the backend.
-- Clearly labeled simulated progress and completion. Demo sites do not open nonexistent websites or admin pages.
-- Optional real Hestia connection checks, website listing, and account backup listing.
-- Links to manage real hosted websites in Hestia. Hosted domains are not assumed to be WordPress installations.
+- Websites, Backups, Server, and Settings.
+- Four steps: check server, name website, create login, launch.
+- Sensible defaults, input validation, password generation, and resumable drafts.
+- Clearly explained DNS waiting and progress that survives a browser reload.
+- Visit website and WordPress admin links after installation verification.
 
-## Connect an existing Hestia server
+## Connect Hestia and install WordPress
 
-1. Copy `.env.example` to `.env`.
-2. Enter the HTTPS panel URL, Hestia username, access key, and secret key.
-3. Grant the key only `v-list-web-domains` and `v-list-user-backups` for the intended account. Allow Hearth's server IP in Hestia's API settings.
-4. Run `npm start` again, then open **Server → Check connection**.
+Copy `.env.example` to `.env` and complete the panel URL, hosting username, access key, and secret key. Configure limited API permissions and allow Hearth’s IP in Hestia. The read-only features work without enabling installation.
 
-Secrets remain in the local server environment; `.env` is ignored by Git. Use a trusted HTTPS certificate, or configure Node's trusted CA mechanism for your own CA. Certificate validation remains enabled. API requests have a ten-second timeout and do not follow redirects.
+For live installs, also configure the server’s website IPv4 and installed PHP version and set `HEARTH_INSTALL_ENABLED=true`. Restart Hearth and check Server → Check connection. Use a test server and spare domain for the first installation.
 
-The connector follows Hestia's [access-key API](https://hestiacp.com/docs/server-administration/rest-api) and [API request format](https://hestiacp.com/docs/reference/api). Backup listing uses the documented [CLI commands](https://hestiacp.com/docs/reference/cli). Protocol behavior is tested with simulated responses; a real Hestia server has not yet been tested.
+**[Read the real installation setup and recovery guide](docs/real-installs.md)** before enabling this experimental feature. It covers permissions, DNS, certificates, compatibility, checkpoints, and how to inspect a partial installation.
 
-## Scope and safety
+Hearth uses Hestia’s own WordPress Quick Install CLI for software and database setup. It waits for direct IPv4 DNS, refuses existing domains, establishes HTTPS, installs WordPress, and verifies the site before reporting success. If the outcome of a write is uncertain, Hearth stops for inspection instead of replaying installation or deleting resources.
 
-This alpha listens only on `127.0.0.1`. Host and origin checks restrict access to its local URL. It has no remote authentication layer: do not expose it through a public proxy or change it to listen on the network. Hestia access is read-only. No arbitrary command or server-address endpoint is exposed to the browser.
+## Current boundaries
 
-Live installation is intentionally disabled until provisioning, retries, DNS, HTTPS, and WordPress verification can be tested together on a disposable Hestia server. Demo progress is not evidence of installation. Reported backup files are not verified restore points.
+This is a local, single-operator alpha. It listens on `127.0.0.1`, restricts Host/Origin, protects installation requests with a startup token, and keeps API keys in the local server environment. **Do not expose it through a public proxy.** Remote authentication and multi-user authorization are not implemented. Keep one running instance per data folder.
 
-Demo site metadata and drafts belong to one browser. Use **Settings → Clear demo data** to remove them. This is not a multi-user or production panel yet.
+Live installation currently requires direct IPv4 DNS without a DNS proxy or AAAA record. It creates a single root-domain site without a `www` alias. Backups, migrations, staging, email configuration, and automatic recovery of partial installs are outside this release.
+
+Passwords stay in memory and are sent only for an installation. Non-secret progress, including administrator email and username, is stored in the local `.hearth` folder. Preserve it to retain duplicate-install protection. Browser demo sites and drafts can be cleared in Settings. Real job records and sites are unaffected by clearing demo data.
+
+The backend and failure paths are covered by automated tests with simulated Hestia responses. Browser QA covers DNS waiting, reload, retry, completion, and dashboard actions using a simulated server. A real Hestia end-to-end test remains outstanding.
 
 ## Development
 
@@ -50,12 +49,10 @@ npm run check
 npm test
 ```
 
-Uses native Node.js HTTP and fetch APIs and browser JavaScript. No build step or package installation is needed. `public/` contains the UI; `server.mjs` serves it and limits API routes; `hestia.mjs` contains the read-only adapter.
+Uses native Node.js HTTP/fetch and browser JavaScript; no build step or package installation. `public/` contains the UI, `server.mjs` serves the local app, `hestia.mjs` handles Hestia requests, and `install.mjs` handles installation jobs and verification.
 
-## Next milestone
-
-Verify the connector on a test Hestia server, then implement one real journey: create a WordPress site, verify DNS and HTTPS, and open its working admin page. See [the wizard plan](docs/wizard.md).
+See [the wizard plan](docs/wizard.md) and [real install guide](docs/real-installs.md).
 
 ## License
 
-Hearth's original code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). HestiaCP is a separate GPLv3 project. No Hestia source code is bundled here.
+Hearth’s original code is **GPL-3.0-or-later**; see [LICENSE](LICENSE). HestiaCP is a separate GPLv3 project. No Hestia source code is bundled here.

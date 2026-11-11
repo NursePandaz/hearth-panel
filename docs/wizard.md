@@ -1,6 +1,6 @@
 # The Hearth wizard
 
-Version 0.1 implements this flow as a clearly labeled local demo. The live connector can check access and list hosted domains and account backups; live provisioning remains the next milestone.
+Version 0.2 adds an experimental live flow with Hestia domain creation, HTTPS, WordPress Quick Install, and final verification. Live installation is opt-in; real Hestia end-to-end validation is still outstanding. See [real installation setup and recovery](real-installs.md).
 
 ## Server setup happens once
 

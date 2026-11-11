@@ -1,6 +1,6 @@
 {
   "name": "hearth-panel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A simple WordPress-first dashboard for HestiaCP",
   "type": "module",
@@ -11,6 +11,6 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check hestia.mjs && node --check public/app.js"
+    "check": "node --check server.mjs && node --check hestia.mjs && node --check install.mjs && node --check public/app.js"
   }
 }

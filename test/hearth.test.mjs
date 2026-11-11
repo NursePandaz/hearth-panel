@@ -1,5 +1,9 @@
 import test from 'node:test';
 import { request } from 'node:http';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { configuration, hestiaRead, websites } from '../hestia.mjs';
 import { createServer } from '../server.mjs';
@@ -54,11 +58,11 @@ function localFetch(url, options = {}) {
       res.on('data', chunk=>chunks.push(chunk));
       res.on('end',()=>resolve(new Response(Buffer.concat(chunks), {status:res.statusCode,headers:res.headers})));
     });
-    req.on('error',reject); req.end();
+    req.on('error',reject); req.end(options.body);
   });
 }
-async function withServer(env, fn, fetcher) {
-  const server=createServer({...env, PORT:'4318'},fetcher);
+async function withServer(env, fn, fetcher, managerOptions) {
+  const server=createServer({...env, PORT:'4318'},fetcher,managerOptions);
   await new Promise((resolve,reject)=>{ server.once('error',reject); server.listen(4318,'127.0.0.1',resolve); });
   try { await fn('http://127.0.0.1:4318'); }
   finally { server.closeAllConnections(); await new Promise(resolve=>server.close(resolve)); }
@@ -97,4 +101,25 @@ test('live routes map Hestia responses and keep secrets server-side', async () =
     return Response.json(command==='v-list-user-backups'?{'alice.backup.tar':{}}:{'example.com':{SSL:'yes'}});
   });
   assert.deepEqual(calls,['v-list-web-domains','v-list-web-domains','v-list-user-backups']);
+});
+
+
+test('installation routes require CSRF token, JSON, explicit enablement, and save no credentials', async () => {
+  const dir=await mkdtemp(path.join(tmpdir(),'hearth-route-'));
+  const installEnv={...env,HEARTH_INSTALL_ENABLED:'true',HESTIA_SITE_IP:'192.0.2.5',HESTIA_PHP_VERSION:'8.3',HEARTH_DATA_DIR:dir};
+  let upstreamCalls=0;
+  try {
+    await withServer(installEnv,async base=>{
+      const status=await (await localFetch(base+'/api/status')).json();assert.equal(status.installEnabled,true);assert.equal(status.csrf.length,64);
+      const details={domain:'fresh.example.net',title:'Fresh site',email:'owner@example.net',username:'editor',password:'TestPassword!123',requestId:randomUUID()};
+      const body=JSON.stringify(details);
+      assert.equal((await localFetch(base+'/api/installations',{method:'POST',headers:{'Content-Type':'application/json'},body})).status,403);
+      assert.equal((await localFetch(base+'/api/installations',{method:'POST',headers:{'X-Hearth-Token':status.csrf},body})).status,415);
+      assert.equal((await localFetch(base+'/api/installations',{method:'POST',headers:{'X-Hearth-Token':status.csrf,'Content-Type':'application/json',Origin:'https://evil.example'},body})).status,403);
+      const accepted=await localFetch(base+'/api/installations',{method:'POST',headers:{'X-Hearth-Token':status.csrf,'Content-Type':'application/json'},body});assert.equal(accepted.status,202);
+      let jobs=[];
+      for(let i=0;i<100;i++){jobs=(await (await localFetch(base+'/api/installations')).json()).jobs;if(jobs[0]?.state==='waiting_dns')break;await new Promise(r=>setTimeout(r,5));}
+      assert.equal(jobs[0].state,'waiting_dns');assert.equal(JSON.stringify(jobs).includes(details.password),false);assert.equal(JSON.stringify(jobs).includes(env.HESTIA_SECRET_KEY),false);assert.equal(upstreamCalls,0);
+    },async()=>{upstreamCalls++;return Response.json({});},{dns:async()=>({ready:false,expected:'192.0.2.5',ipv4:[],ipv6:[]})});
+  } finally {await rm(dir,{recursive:true,force:true});}
 });

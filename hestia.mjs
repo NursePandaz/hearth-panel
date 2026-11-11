@@ -32,3 +32,16 @@ export function websites(data) {
     domain, title: domain, suspended: details?.SUSPENDED === 'yes', ssl: details?.SSL === 'yes', kind: 'Hosted website', demo: false
   }));
 }
+
+// Fixed write allowlist. Never accept a command name from the browser.
+const writeCommands = new Set(['v-add-web-domain', 'v-add-letsencrypt-domain', 'v-quick-install-app', 'v-add-web-domain-ssl-force']);
+export async function hestiaCommand(config, command, args, fetcher = fetch) {
+  if (!writeCommands.has(command) || args.length > 13) throw new Error('Unsupported installation operation.');
+  const body = new URLSearchParams({ hash:config.hash, returncode:'yes', cmd:command });
+  args.forEach((arg,i)=>body.set(`arg${i+1}`,arg));
+  let response;
+  try { response = await fetcher(config.url, {method:'POST',body,redirect:'error',signal:AbortSignal.timeout(15*60*1000)}); }
+  catch { throw new Error('Hestia installation response was not received.'); }
+  const code = (await response.text()).trim();
+  if (!response.ok || code !== '0') throw new Error('Hestia did not confirm the installation operation.');
+}
