@@ -1,5 +1,7 @@
 # The Hearth wizard
 
+Version 0.1 implements this flow as a clearly labeled local demo. The live connector can check access and list hosted domains and account backups; live provisioning remains the next milestone.
+
 ## Server setup happens once
 
 Connect an existing HestiaCP test server first. A fresh-server bootstrap installer is a later milestone. Keep connection credentials on the server, never in browser storage or logs. Use certificate verification and narrowly scoped API permissions.
